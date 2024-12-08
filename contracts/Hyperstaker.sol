@@ -34,6 +34,7 @@ contract Hyperstaker is AccessControl, Pausable {
     event Staked(address indexed user, uint256 amount);
     event Unstaked(address indexed user, uint256 amount);
     event RewardClaimed(address indexed user, uint256 reward);
+    event RewardSet(address indexed token, uint256 amount);
 
     constructor(address _hypercertMinter, uint256 _baseHypercertId) {
         require(_getBaseType(_baseHypercertId) == _baseHypercertId, "hypercert is not a base type");
@@ -43,15 +44,16 @@ contract Hyperstaker is AccessControl, Pausable {
         totalUnits = hypercertMinter.unitsOf(baseHypercertId);
     }
 
-    function setReward(address _rewardToken, uint256 _rewardAmount) external onlyRole(MANAGER_ROLE) {
+    function setReward(address _rewardToken, uint256 _rewardAmount) external payable onlyRole(MANAGER_ROLE) {
         totalRewards = _rewardAmount;
         rewardToken = _rewardToken;
         if (_rewardToken != address(0)) {
-            IERC20(_rewardToken).transferFrom(msg.sender, address(this), _rewardAmount);
+            bool success = IERC20(_rewardToken).transferFrom(msg.sender, address(this), _rewardAmount);
+            require(success, "Reward token transfer failed");
         } else {
-            (bool success,) = payable(msg.sender).call{value: _rewardAmount}("");
-            require(success, "Native token transfer failed");
+            require(msg.value == _rewardAmount, "Incorrect reward amount");
         }
+        emit RewardSet(_rewardToken, _rewardAmount);
     }
 
     function stake(uint256 _hypercertId) external whenNotPaused {
