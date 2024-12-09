@@ -59,7 +59,6 @@ contract Hyperstaker is AccessControl, Pausable {
     function stake(uint256 _hypercertId) external whenNotPaused {
         uint256 units = hypercertMinter.unitsOf(_hypercertId);
         require(units > 0, "No units in the hypercert");
-        require(hypercertMinter.ownerOf(_hypercertId) == msg.sender, "Not the owner of the hypercert");
         require(_getBaseType(_hypercertId) == baseHypercertId, "Hypercert is not a fraction of the base hypercert");
 
         hypercertMinter.transferFrom(msg.sender, address(this), _hypercertId, units);
