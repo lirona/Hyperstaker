@@ -69,7 +69,7 @@ contract Hyperstaker is AccessControl, Pausable {
     }
 
     function stake(uint256 _hypercertId) external whenNotPaused {
-        uint256 units = hypercertMinter.unitsOf(_hypercertId);
+        uint256 units = hypercertMinter.unitsOf(msg.sender, _hypercertId);
         require(units > 0, NoUnitsInHypercert());
         require(_getBaseType(_hypercertId) == baseHypercertId, WrongBaseHypercert(_hypercertId, baseHypercertId));
 
@@ -79,7 +79,7 @@ contract Hyperstaker is AccessControl, Pausable {
     }
 
     function unstake(uint256 _hypercertId) external whenNotPaused {
-        uint256 units = hypercertMinter.unitsOf(_hypercertId);
+        uint256 units = hypercertMinter.unitsOf(msg.sender, _hypercertId);
         delete stakes[_hypercertId].stakingStartTime;
         emit Unstaked(_hypercertId);
         hypercertMinter.transferFrom(address(this), msg.sender, _hypercertId, units);

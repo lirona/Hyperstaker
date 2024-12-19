@@ -14,17 +14,39 @@ contract Hyperfund is AccessControl, Pausable {
     // erc20 token allowlist
     mapping(address => bool) public allowedTokens;
 
-    // hypercert fraction token id => isClaimed
-    mapping(uint256 => bool) public isClaimed;
+    // // hypercert fraction token id => isClaimed
+    // mapping(uint256 => bool) public isClaimed;
+
+    // builder allocations
+    mapping(address => mapping(uint256 => uint256)) public allocations;
 
     //Roles
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    event Retired(uint256 indexed hypercertId, address indexed builder, address token, uint256 amount);
+    event Allocate(uint256 hypercertId, address indexed builder, uint256 amount);
+    event Withdraw(address indexed token, uint256 indexed amount, address indexed to);
+
     constructor(address _hypercertMinter, uint256 _hypercertId) {
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         hypercertId = _hypercertId;
         hypercertMinter = IHypercertToken(_hypercertMinter);
+    }
+
+    // Allocate funds to builders
+    function allocateFunds(address _builder, uint256 _hypercertId, uint256 _amount) external onlyRole(MANAGER_ROLE) {
+        allocations[_builder][_hypercertId] = _amount;
+
+        emit Allocate(_hypercertId, _builder, _amount);
+    }
+
+    function retireHypercert(address _token, uint256 _amount, uint256 _id) external {
+        require(hypercertMinter.unitsOf(msg.sender, _id) >= _amount);
+        require(allocations[msg.sender][_id] >= _amount, "insufficient allocation");
+
+        _retireFraction(_token, _amount, _id);
+        emit Retired(_id, msg.sender, _token, _amount);
     }
 
     function setHypercertId(uint256 _hypercertId) external onlyRole(MANAGER_ROLE) {
@@ -41,17 +63,11 @@ contract Hyperfund is AccessControl, Pausable {
         } else {
             require(IERC20(_token).transfer(_to, _amount), "transfer failed");
         }
+
+        emit Withdraw(_token, _amount, _to);
     }
 
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
-    }
-
-    function unpause() external onlyRole(PAUSER_ROLE) {
-        _unpause();
-    }
-
-    /// @notice send a donation to the hyperfund and receive a hypercert fraction
+    /// @notice send a donation to the hyperfund and receive a hypercert fraction (will be deprecated after integrating Doogly)
     /// @param _token address of the token to donate, must be allowlisted. address(0) for native token
     /// @param _amount amount of the token to donate
     function donate(address _token, uint256 _amount) external payable whenNotPaused {
@@ -68,10 +84,24 @@ contract Hyperfund is AccessControl, Pausable {
         _mintFraction(msg.sender, _amount);
     }
 
+    function _retireFraction(address _token, uint256 _amount, uint256 _id) internal {
+        allocations[msg.sender][_id] -= _amount;
+        hypercertMinter.burn(msg.sender, _id, _amount);
+        require(IERC20(_token).transfer(msg.sender, _amount), "retirement failed due to transfer failure");
+    }
+
     function _mintFraction(address account, uint256 amount) internal {
         uint256[] memory newallocations = new uint256[](2);
-        newallocations[0] = hypercertMinter.unitsOf(hypercertId) - amount;
+        newallocations[0] = hypercertMinter.unitsOf(msg.sender, hypercertId) - amount;
         newallocations[1] = amount;
         hypercertMinter.splitFraction(account, hypercertId, newallocations);
+    }
+
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
     }
 }

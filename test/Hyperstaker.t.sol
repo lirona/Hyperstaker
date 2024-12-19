@@ -9,8 +9,8 @@ import {MockERC20} from "./mocks/MockERC20.sol";
 contract HyperstakerTest is Test {
     Hyperstaker public hyperstaker;
     MockHypercertMinter public hypercertMinter;
-    uint256 public baseHypercertId = 1<<128;
-    uint256 public fractionHypercertId = (1<<128) + 1;
+    uint256 public baseHypercertId = 1 << 128;
+    uint256 public fractionHypercertId = (1 << 128) + 1;
 
     function setUp() public {
         hypercertMinter = new MockHypercertMinter();
